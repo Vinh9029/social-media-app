@@ -5,12 +5,14 @@ class Message {
   final User sender;
   final String content;
   final String timestamp;
+  final String type; // 'text', 'image', 'sticker'
 
   Message({
     required this.id,
     required this.sender,
     required this.content,
     required this.timestamp,
+    this.type = 'text',
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -21,6 +23,7 @@ class Message {
           : User(id: 'unknown', name: 'Unknown', username: 'unknown'),
       content: json['content'] ?? '',
       timestamp: json['createdAt'] ?? DateTime.now().toIso8601String(),
+      type: json['type'] ?? 'text',
     );
   }
 }

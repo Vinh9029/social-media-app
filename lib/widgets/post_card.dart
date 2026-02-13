@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../models/post.dart';
+import '../screens/post_detail_screen.dart';
 
 class PostCard extends StatelessWidget {
   final Post post;
@@ -25,7 +26,14 @@ class PostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => PostDetailScreen(post: post)),
+        );
+      },
+      child: Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -115,6 +123,7 @@ class PostCard extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 
