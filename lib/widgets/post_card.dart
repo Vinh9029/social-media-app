@@ -1,0 +1,132 @@
+import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../../models/post.dart';
+
+class PostCard extends StatelessWidget {
+  final Post post;
+
+  const PostCard({super.key, required this.post});
+
+  String _formatDate(String timestamp) {
+    // Simple date formatting logic
+    try {
+      final date = DateTime.parse(timestamp);
+      final now = DateTime.now();
+      final diff = now.difference(date);
+      if (diff.inDays > 0) return '${diff.inDays} ngày trước';
+      if (diff.inHours > 0) return '${diff.inHours} giờ trước';
+      if (diff.inMinutes > 0) return '${diff.inMinutes} phút trước';
+      return 'Vừa xong';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundImage: post.author.avatar != null
+                    ? CachedNetworkImageProvider(post.author.avatar!)
+                    : null,
+                child: post.author.avatar == null ? const Icon(Icons.person) : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      post.author.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      '@${post.author.username} • ${_formatDate(post.timestamp)}',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(LucideIcons.moreHorizontal, color: Colors.grey),
+            ],
+          ),
+          
+          // Content
+          const SizedBox(height: 12),
+          Text(
+            post.content,
+            style: const TextStyle(fontSize: 15, height: 1.5),
+          ),
+
+          // Image
+          if (post.image != null && post.image!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: CachedNetworkImage(
+                imageUrl: post.image!,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                ),
+                errorWidget: (context, url, error) => const Icon(Icons.error),
+              ),
+            ),
+          ],
+
+          // Actions
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildActionButton(LucideIcons.heart, '${post.likes}'),
+              _buildActionButton(LucideIcons.messageCircle, '${post.comments}'),
+              _buildActionButton(LucideIcons.share2, '${post.shares}'),
+              _buildActionButton(LucideIcons.bookmark, ''),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(IconData icon, String label) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey[600]),
+        if (label.isNotEmpty) ...[
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(color: Colors.grey[600])),
+        ],
+      ],
+    );
+  }
+}
