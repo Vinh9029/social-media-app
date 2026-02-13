@@ -33,7 +33,9 @@ class Post {
       likes: (json['likes'] is List) 
           ? (json['likes'] as List).length 
           : (json['likes'] ?? 0),
-      comments: json['comments'] ?? 0,
+      comments: (json['comments'] is List)
+          ? (json['comments'] as List).length
+          : (json['comments'] ?? 0),
       shares: json['shares'] ?? 0,
     );
   }
