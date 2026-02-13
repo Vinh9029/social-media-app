@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'providers/auth_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/search_screen.dart';
+import 'screens/messages_screen.dart';
 
 void main() {
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const MainApp(),
     ),
@@ -22,9 +26,12 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return MaterialApp(
       title: 'BlogSocial',
       debugShowCheckedModeBanner: false,
+      themeMode: themeProvider.themeMode,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
@@ -40,6 +47,10 @@ class MainApp extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
+      ),
+      darkTheme: ThemeData.dark().copyWith(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
+        scaffoldBackgroundColor: const Color(0xFF111827), // slate-900
       ),
       home: const AuthWrapper(),
     );
@@ -71,12 +82,17 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   
+  // Đảm bảo thứ tự các màn hình khớp với NavigationBar bên dưới
   final List<Widget> _screens = [
     const HomeScreen(),
-    const Center(child: Text('Khám phá (Coming Soon)')), // Placeholder cho Explore
-    const Center(child: Text('Tin nhắn (Coming Soon)')), // Placeholder cho Messages
+    const SearchScreen(), // Index 1: Khám phá
+    const MessagesScreen(), // Index 2: Tin nhắn
     const ProfileScreen(),
   ];
+
+  void _navigateToExplore() {
+    setState(() => _currentIndex = 1);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +102,7 @@ class _MainScreenState extends State<MainScreen> {
           ? AppBar(
               title: const Text('BlogSocial', style: TextStyle(color: Colors.blue)),
               actions: [
-                IconButton(icon: const Icon(LucideIcons.search), onPressed: () {}),
+                IconButton(icon: const Icon(LucideIcons.search), onPressed: _navigateToExplore),
                 IconButton(icon: const Icon(LucideIcons.bell), onPressed: () {}),
               ],
             ) 
