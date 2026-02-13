@@ -17,12 +17,32 @@ class MessagesScreen extends StatefulWidget {
 
 class _MessagesScreenState extends State<MessagesScreen> {
   List<Conversation> _conversations = [];
+  List<Conversation> _filteredConversations = [];
   bool _isLoading = true;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _fetchConversations();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredConversations = _conversations.where((c) =>
+        c.name.toLowerCase().contains(query) ||
+        c.username.toLowerCase().contains(query) ||
+        c.lastMessage.toLowerCase().contains(query)
+      ).toList();
+    });
   }
 
   Future<void> _fetchConversations() async {
@@ -37,6 +57,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         final List<dynamic> data = json.decode(response.body);
         setState(() {
           _conversations = data.map((json) => Conversation.fromJson(json)).toList();
+          _filteredConversations = _conversations;
           _isLoading = false;
         });
       }
@@ -48,33 +69,64 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (_isLoading) return const Center(child: CircularProgressIndicator());
     
-    if (_conversations.isEmpty) {
-      return const Center(child: Text('Chưa có tin nhắn nào'));
-    }
-
-    return ListView.builder(
-      itemCount: _conversations.length,
-      itemBuilder: (context, index) {
-        final conv = _conversations[index];
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundImage: conv.avatar != null ? CachedNetworkImageProvider(conv.avatar!) : null,
-            child: conv.avatar == null ? const Icon(Icons.person) : null,
-          ),
-          title: Text(conv.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text(conv.lastMessage, maxLines: 1, overflow: TextOverflow.ellipsis),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ChatDetailScreen(partnerId: conv.partnerId, partnerName: conv.name),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Tìm kiếm tin nhắn hoặc người dùng...',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF1E293B) : Colors.grey[100],
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
               ),
-            ).then((_) => _fetchConversations()); // Refresh khi quay lại
-          },
-        );
-      },
+            ),
+          ),
+        ),
+        Expanded(
+          child: _filteredConversations.isEmpty
+              ? const Center(child: Text('Không tìm thấy cuộc trò chuyện nào'))
+              : ListView.builder(
+                  itemCount: _filteredConversations.length,
+                  itemBuilder: (context, index) {
+                    final conv = _filteredConversations[index];
+                    return ListTile(
+                      leading: GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(context, '/profile', arguments: conv.partnerId);
+                        },
+                        child: CircleAvatar(
+                          backgroundImage: conv.avatar != null ? CachedNetworkImageProvider(conv.avatar!) : null,
+                          child: conv.avatar == null ? const Icon(Icons.person) : null,
+                        ),
+                      ),
+                      title: GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(context, '/profile', arguments: conv.partnerId);
+                        },
+                        child: Text(conv.name, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+                      ),
+                      subtitle: Text(conv.lastMessage, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700])),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ChatDetailScreen(partnerId: conv.partnerId, partnerName: conv.name),
+                          ),
+                        ).then((_) => _fetchConversations());
+                      },
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

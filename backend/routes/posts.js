@@ -4,6 +4,8 @@ const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const auth = require('../middleware/auth');
 const Notification = require('../models/Notifications');
+const { sendNotificationFCM } = require('../utils/fcm');
+const User = require('../models/User');
 
 // Get Trending Posts (For Explore Page)
 router.get('/trending', async (req, res) => {
@@ -282,7 +284,7 @@ router.post('/:id/comments', auth, async (req, res) => {
     await newComment.populate('author', 'username full_name avatar_url');
 
     // --- TẠO THÔNG BÁO ---
-    const post = await Post.findById(req.params.id);
+    const post = await Post.findById(req.params.id).populate('author');
     let recipientId = post.author;
     let notifType = 'comment';
     let notifContent = 'đã bình luận về bài viết của bạn';
@@ -307,6 +309,16 @@ router.post('/:id/comments', auth, async (req, res) => {
         commentId: newComment._id,
         content: notifContent
       }).save();
+    }
+
+    // Gửi notification FCM
+    if (post.author && post.author.fcmToken && post.author._id.toString() !== req.user.id) {
+      await sendNotificationFCM(
+        post.author.fcmToken,
+        'Có bình luận mới!',
+        `${req.user.full_name} đã bình luận bài viết của bạn`,
+        { postId: post._id.toString() }
+      );
     }
     // ---------------------
 
@@ -415,24 +427,68 @@ router.delete('/:id', auth, async (req, res) => {
 // Share Post
 router.post('/:id/share', auth, async (req, res) => {
   try {
-    const originalPost = await Post.findById(req.params.id);
-    if (!originalPost) return res.status(404).json({ msg: 'Post not found' });
+    const post = await Post.findById(req.params.id).populate('author');
+    if (!post) return res.status(404).json({ msg: 'Post not found' });
+    if (!post.shares.includes(req.user.id)) {
+      post.shares.push(req.user.id);
+      await post.save();
+      // Gửi notification nếu không phải tự share bài mình
+      if (post.author && post.author.fcmToken && post.author._id.toString() !== req.user.id) {
+        await sendNotificationFCM(
+          post.author.fcmToken,
+          'Bài viết của bạn được chia sẻ!',
+          `${req.user.full_name} đã chia sẻ bài viết của bạn`,
+          { postId: post._id.toString() }
+        );
+      }
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
 
-    // Nếu bài viết gốc cũng là bài share, hãy share bài gốc thực sự
-    const sharedId = originalPost.originalPost ? originalPost.originalPost : originalPost._id;
+// Like/Unlike post
+router.put('/:id/like', auth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id).populate('author');
+    if (!post) return res.status(404).json({ msg: 'Post not found' });
+    const idx = post.reactions.findIndex(r => r.user.toString() === req.user.id && r.type === 'like');
+    if (idx === -1) {
+      post.reactions.push({ user: req.user.id, type: 'like' });
+      // Gửi notification nếu không phải tự like bài mình
+      if (post.author && post.author.fcmToken && post.author._id.toString() !== req.user.id) {
+        await sendNotificationFCM(
+          post.author.fcmToken,
+          'Bài viết của bạn được thích!',
+          `${req.user.full_name} đã thích bài viết của bạn`,
+          { postId: post._id.toString() }
+        );
+      }
+    } else {
+      post.reactions.splice(idx, 1);
+    }
+    await post.save();
+    res.json({ likes: post.reactions.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
 
-    const newPost = new Post({
-      author: req.user.id,
-      content: req.body.content || '', // Nội dung người dùng viết thêm khi share
-      originalPost: sharedId
-    });
-
-    await newPost.save();
-    
-    // Cập nhật số lượng share cho bài gốc (nếu muốn tracking)
-    await Post.findByIdAndUpdate(sharedId, { $push: { shares: req.user.id } });
-
-    res.json(newPost);
+// Save/Unsave post
+router.put('/:id/save', auth, async (req, res) => {
+  try {
+    const user = await require('../models/User').findById(req.user.id);
+    const idx = user.saved_posts.indexOf(req.params.id);
+    if (idx === -1) {
+      user.saved_posts.push(req.params.id);
+    } else {
+      user.saved_posts.splice(idx, 1);
+    }
+    await user.save();
+    res.json({ saved: user.saved_posts.includes(req.params.id) });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server Error');

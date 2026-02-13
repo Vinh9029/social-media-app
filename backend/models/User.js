@@ -24,6 +24,8 @@ const UserSchema = new mongoose.Schema({
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   saved_posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
   blocked_users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+
+  fcmToken: { type: String },
   
   createdAt: { type: Date, default: Date.now }
 });

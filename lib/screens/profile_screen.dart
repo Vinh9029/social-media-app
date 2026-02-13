@@ -7,7 +7,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../config.dart';
 import '../models/user.dart';
-import '../../providers/auth_provider.dart';
+import '../models/post.dart';
+import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
+import '../../widgets/post_card.dart';
 import 'settings_screen.dart';
 import 'chat_detail_screen.dart';
 
@@ -23,11 +26,15 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   User? _profileUser;
   bool _isLoading = false;
+  List<Post> _userPosts = [];
+  List<Post> _userShares = [];
 
   @override
   void initState() {
     super.initState();
     _fetchProfileData();
+    _fetchUserPosts();
+    _fetchUserShares();
   }
 
   Future<void> _fetchProfileData() async {
@@ -57,6 +64,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
       print("Error fetching profile: $e");
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchUserPosts() async {
+    if (_profileUser == null) return;
+    try {
+      final response = await http.get(Uri.parse('$API_URL/api/posts/user/${_profileUser!.id}'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          _userPosts = data.map((json) => Post.fromJson(json)).toList();
+        });
+      }
+    } catch (e) {
+      print("Error fetching user posts: $e");
+    }
+  }
+
+  Future<void> _fetchUserShares() async {
+    if (_profileUser == null) return;
+    try {
+      final response = await http.get(Uri.parse('$API_URL/api/posts/shared/${_profileUser!.id}'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          _userShares = data.map((json) => Post.fromJson(json)).toList();
+        });
+      }
+    } catch (e) {
+      print("Error fetching user shares: $e");
     }
   }
 
@@ -120,48 +157,99 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final currentUser = Provider.of<AuthProvider>(context).user;
     final user = _profileUser;
+    final isMe = currentUser?.id == user?.id;
+    final isDark = themeProvider.isDarkMode;
 
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: isDark ? const Color(0xFF111827) : const Color(0xFFF9FAFB),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (user == null) {
-      return const Scaffold(body: Center(child: Text('Không tìm thấy người dùng')));
+      return Scaffold(
+        backgroundColor: isDark ? const Color(0xFF111827) : const Color(0xFFF9FAFB),
+        body: const Center(child: Text('Không tìm thấy người dùng')),
+      );
     }
 
-    final isMe = currentUser?.id == user.id;
-
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF111827) : const Color(0xFFF9FAFB),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 200.0,
+            expandedHeight: 240.0,
             floating: false,
             pinned: true,
             leading: isMe ? null : const BackButton(color: Colors.white),
-            actions: isMe ? [
-              IconButton(
-                icon: const Icon(LucideIcons.settings, color: Colors.white),
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
-                },
-              )
-            ] : null,
-            flexibleSpace: FlexibleSpaceBar(
-              background: user.cover != null
-                  ? CachedNetworkImage(
-                      imageUrl: user.cover!,
-                      fit: BoxFit.cover,
+            actions: isMe
+                ? [
+                    IconButton(
+                      icon: const Icon(LucideIcons.settings, color: Colors.white),
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
+                      },
                     )
-                  : Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.blue, Colors.indigo],
+                  ]
+                : null,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  user.cover != null
+                      ? CachedNetworkImage(
+                          imageUrl: user.cover!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        )
+                      : Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: isDark
+                                  ? [Colors.blueGrey.shade900, Colors.black]
+                                  : [Colors.blue, Colors.indigo],
+                            ),
+                          ),
+                        ),
+                  Positioned(
+                    top: 180,
+                    child: GestureDetector(
+                      onTap: isMe ? () => _uploadImage(ImageSource.gallery, 'avatar') : null,
+                      child: Material(
+                        elevation: 8,
+                        shape: const CircleBorder(),
+                        child: CircleAvatar(
+                          radius: 60,
+                          backgroundImage: user.avatar != null
+                              ? CachedNetworkImageProvider(user.avatar!)
+                              : null,
+                          child: user.avatar == null
+                              ? const Icon(Icons.person, size: 60)
+                              : null,
                         ),
                       ),
                     ),
+                  ),
+                  if (isMe)
+                    Positioned(
+                      top: 16,
+                      right: 16,
+                      child: TextButton.icon(
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ),
+                        onPressed: () => _uploadImage(ImageSource.gallery, 'cover'),
+                        icon: const Icon(Icons.image, color: Colors.blue),
+                        label: const Text("Đổi ảnh bìa", style: TextStyle(color: Colors.blue)),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           SliverToBoxAdapter(
@@ -169,109 +257,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Column(
                 children: [
-                  // Avatar overlap logic
-                  Transform.translate(
-                    offset: const Offset(0, -50),
-                    child: Column(
+                  const SizedBox(height: 80),
+                  Text(
+                    user.name,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  Text(
+                    '@${user.username}',
+                    style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildStatItem('Followers', user.followersCount, isDark),
+                      const SizedBox(width: 24),
+                      _buildStatItem('Following', user.followingCount, isDark),
+                    ],
+                  ),
+                  if (user.bio != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      user.bio!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 15, color: isDark ? Colors.grey[200] : Colors.black),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  if (!isMe)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        GestureDetector(
-                          onTap: isMe ? () => _uploadImage(ImageSource.gallery, 'avatar') : null,
-                          child: Stack(
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 4),
-                                ),
-                                child: CircleAvatar(
-                                  radius: 50,
-                                  backgroundImage: user.avatar != null
-                                      ? CachedNetworkImageProvider(user.avatar!)
-                                      : null,
-                                  child: user.avatar == null
-                                      ? const Icon(Icons.person, size: 50)
-                                      : null,
-                                ),
-                              ),
-                              if (isMe)
-                                const Positioned(
-                                  bottom: 0, right: 0,
-                                  child: CircleAvatar(radius: 16, backgroundColor: Colors.blue, child: Icon(Icons.camera_alt, size: 16, color: Colors.white)),
-                                )
-                            ],
+                        ElevatedButton(
+                          onPressed: _toggleFollow,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                           ),
+                          child: const Text('Theo dõi', style: TextStyle(color: Colors.white)),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          user.name,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                        const SizedBox(width: 10),
+                        OutlinedButton(
+                          onPressed: _navigateToChat,
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            side: const BorderSide(color: Colors.blue),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                           ),
+                          child: const Text('Nhắn tin', style: TextStyle(color: Colors.blue)),
                         ),
-                        Text(
-                          '@${user.username}',
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _buildStatItem('Followers', user.followersCount),
-                            const SizedBox(width: 24),
-                            _buildStatItem('Following', user.followingCount),
-                          ],
-                        ),
-                        if (user.bio != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            user.bio!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 15),
-                          ),
-                        ],
-                        const SizedBox(height: 20),
-                        if (isMe)
-                          OutlinedButton.icon(
-                            onPressed: () {
-                              Provider.of<AuthProvider>(context, listen: false).logout();
-                            },
-                            icon: const Icon(Icons.logout, color: Colors.red),
-                            label: const Text('Đăng xuất', style: TextStyle(color: Colors.red)),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.red),
-                            ),
-                          )
-                        else
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              ElevatedButton(
-                                onPressed: _toggleFollow,
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                                child: const Text('Theo dõi', style: TextStyle(color: Colors.white)),
-                              ),
-                              const SizedBox(width: 10),
-                              OutlinedButton(
-                                onPressed: _navigateToChat,
-                                child: const Text('Nhắn tin'),
-                              ),
-                            ],
-                          ),
-                        const SizedBox(height: 20),
-                        const Divider(),
-                        if (isMe)
-                          TextButton.icon(
-                            onPressed: () => _uploadImage(ImageSource.gallery, 'cover'),
-                            icon: const Icon(Icons.image),
-                            label: const Text("Đổi ảnh bìa"),
-                          ),
-                        const Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text("Bài viết (Coming Soon)", style: TextStyle(fontWeight: FontWeight.bold)),
-                        )
                       ],
                     ),
+                  const SizedBox(height: 20),
+                  const Divider(),
+                  // Bài viết
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text("Bài viết của bạn", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _userPosts.length,
+                    itemBuilder: (context, index) {
+                      return PostCard(post: _userPosts[index]);
+                    },
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text("Bài bạn đã chia sẻ", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _userShares.length,
+                    itemBuilder: (context, index) {
+                      return PostCard(post: _userShares[index]);
+                    },
                   ),
                 ],
               ),
@@ -282,11 +349,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildStatItem(String label, int count) {
+  Widget _buildStatItem(String label, int count, bool isDark) {
     return Column(
       children: [
-        Text(count.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+        Text(count.toString(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDark ? Colors.white : Colors.black)),
+        Text(label, style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[600], fontSize: 12)),
       ],
     );
   }

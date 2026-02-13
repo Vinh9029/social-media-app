@@ -26,6 +26,7 @@ class PostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -34,96 +35,116 @@ class PostCard extends StatelessWidget {
         );
       },
       child: Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundImage: post.author.avatar != null
-                    ? CachedNetworkImageProvider(post.author.avatar!)
-                    : null,
-                child: post.author.avatar == null ? const Icon(Icons.person) : null,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      post.author.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    Text(
-                      '@${post.author.username} • ${_formatDate(post.timestamp)}',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(LucideIcons.moreHorizontal, color: Colors.grey),
-            ],
-          ),
-          
-          // Content
-          const SizedBox(height: 12),
-          Text(
-            post.content,
-            style: const TextStyle(fontSize: 15, height: 1.5),
-          ),
-
-          // Image
-          if (post.image != null && post.image!.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: CachedNetworkImage(
-                imageUrl: post.image!,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  height: 200,
-                  color: Colors.grey[200],
-                ),
-                errorWidget: (context, url, error) => const Icon(Icons.error),
-              ),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pushNamed(
+                      context,
+                      '/profile',
+                      arguments: post.author.id,
+                    );
+                  },
+                  child: CircleAvatar(
+                    radius: 22,
+                    backgroundImage: post.author.avatar != null
+                        ? CachedNetworkImageProvider(post.author.avatar!)
+                        : null,
+                    child: post.author.avatar == null ? const Icon(Icons.person) : null,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamed(
+                        context,
+                        '/profile',
+                        arguments: post.author.id,
+                      );
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          post.author.name,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                        Text(
+                          '@${post.author.username} • ${_formatDate(post.timestamp)}',
+                          style: TextStyle(
+                            color: isDark ? Colors.grey[300] : Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Icon(LucideIcons.moreHorizontal, color: Colors.grey),
+              ],
+            ),
+            
+            // Content
+            const SizedBox(height: 12),
+            Text(
+              post.content,
+              style: const TextStyle(fontSize: 15, height: 1.5),
+            ),
 
-          // Actions
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildActionButton(LucideIcons.heart, '${post.likes}'),
-              _buildActionButton(LucideIcons.messageCircle, '${post.comments}'),
-              _buildActionButton(LucideIcons.share2, '${post.shares}'),
-              _buildActionButton(LucideIcons.bookmark, ''),
+            // Image
+            if (post.image != null && post.image!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CachedNetworkImage(
+                  imageUrl: post.image!,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    height: 200,
+                    color: Colors.grey[200],
+                  ),
+                  errorWidget: (context, url, error) => const Icon(Icons.error),
+                ),
+              ),
             ],
-          ),
-        ],
+
+            // Actions
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildActionButton(LucideIcons.heart, '${post.likes}'),
+                _buildActionButton(LucideIcons.messageCircle, '${post.comments}'),
+                _buildActionButton(LucideIcons.share2, '${post.shares}'),
+                _buildActionButton(LucideIcons.bookmark, ''),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 

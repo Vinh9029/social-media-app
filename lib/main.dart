@@ -47,12 +47,39 @@ class MainApp extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
+        cardColor: Colors.white,
+        dividerColor: Colors.grey.shade300,
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(color: Colors.black),
+        ),
       ),
       darkTheme: ThemeData.dark().copyWith(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
         scaffoldBackgroundColor: const Color(0xFF111827), // slate-900
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1E293B),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: IconThemeData(color: Colors.white),
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        cardColor: const Color(0xFF1E293B),
+        dividerColor: Colors.grey,
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(color: Colors.white),
+        ),
       ),
       home: const AuthWrapper(),
+      routes: {
+        '/profile': (context) {
+          final userId = ModalRoute.of(context)!.settings.arguments as String?;
+          return ProfileScreen(userId: userId);
+        },
+      },
     );
   }
 }
@@ -84,7 +111,7 @@ class _MainScreenState extends State<MainScreen> {
   
   // Đảm bảo thứ tự các màn hình khớp với NavigationBar bên dưới
   final List<Widget> _screens = [
-    const HomeScreen(),
+    HomeScreen(key: HomeScreen.globalKey),
     const SearchScreen(), // Index 1: Khám phá
     const MessagesScreen(), // Index 2: Tin nhắn
     const ProfileScreen(),
@@ -100,7 +127,18 @@ class _MainScreenState extends State<MainScreen> {
       // Chỉ hiện AppBar ở trang Home, các trang khác tự xử lý AppBar của riêng mình (như Profile)
       appBar: _currentIndex == 0 
           ? AppBar(
-              title: const Text('BlogSocial', style: TextStyle(color: Colors.blue)),
+              title: GestureDetector(
+                onTap: () {
+                  // Scroll về đầu trang HomeScreen
+                  if (_currentIndex == 0 && _screens[0] is HomeScreen) {
+                    final homeKey = HomeScreen.globalKey;
+                    if (homeKey.currentState != null) {
+                      homeKey.currentState!.scrollToTop();
+                    }
+                  }
+                },
+                child: const Text('BlogSocial', style: TextStyle(color: Colors.blue)),
+              ),
               actions: [
                 IconButton(icon: const Icon(LucideIcons.search), onPressed: _navigateToExplore),
                 IconButton(icon: const Icon(LucideIcons.bell), onPressed: () {}),

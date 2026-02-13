@@ -17,7 +17,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _bioController = TextEditingController();
+  final _socialController = TextEditingController();
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    _bioController.text = user?.bio ?? '';
+    _socialController.text = user?.username ?? '';
+  }
 
   Future<void> _changePassword() async {
     if (_newPasswordController.text != _confirmPasswordController.text) {
@@ -57,12 +67,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _updateProfile() async {
+    setState(() => _isLoading = true);
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    try {
+      final response = await http.put(
+        Uri.parse('$API_URL/api/users/update-profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-auth-token': token ?? ''
+        },
+        body: json.encode({
+          'bio': _bioController.text,
+          'social': _socialController.text,
+        }),
+      );
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cập nhật thành công')));
+        await Provider.of<AuthProvider>(context, listen: false).fetchUserProfile();
+      } else {
+        final data = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data['message'] ?? 'Lỗi cập nhật')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi kết nối')));
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+    final isDark = themeProvider.isDarkMode;
     return Scaffold(
       appBar: AppBar(title: const Text('Cài đặt')),
+      backgroundColor: isDark ? const Color(0xFF111827) : const Color(0xFFF9FAFB),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -72,6 +112,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('Chế độ tối (Dark Mode)'),
             value: themeProvider.isDarkMode,
             onChanged: (value) => themeProvider.toggleTheme(value),
+          ),
+          const Divider(height: 30),
+
+          // Thông tin cá nhân
+          const Text('Thông tin cá nhân', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _bioController,
+            decoration: const InputDecoration(
+              labelText: 'Bio',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _socialController,
+            decoration: const InputDecoration(
+              labelText: 'Social Link',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _isLoading ? null : _updateProfile,
+            child: _isLoading ? const CircularProgressIndicator() : const Text('Cập nhật'),
           ),
           const Divider(height: 30),
 
@@ -108,6 +173,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ElevatedButton(
             onPressed: _isLoading ? null : _changePassword,
             child: _isLoading ? const CircularProgressIndicator() : const Text('Đổi mật khẩu'),
+          ),
+          const Divider(height: 30),
+          // Đăng xuất
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Provider.of<AuthProvider>(context, listen: false).logout();
+              Navigator.pop(context);
+            },
+            icon: const Icon(Icons.logout, color: Colors.white),
+            label: const Text('Đăng xuất', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

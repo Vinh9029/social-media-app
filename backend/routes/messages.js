@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Message = require('../models/Message');
 const User = require('../models/User');
+const { getAvatarFallback } = require('../utils/avatar');
 
 // Đếm số tin nhắn chưa đọc
 router.get('/unread-count', auth, async (req, res) => {
@@ -28,7 +29,12 @@ router.post('/', auth, async (req, res) => {
     const sender = await User.findById(req.user.id);
     const recipient = await User.findById(recipientId);
 
-    if (sender.blocked_users.includes(recipientId) || recipient.blocked_users.includes(req.user.id)) {
+    // Sửa lỗi nếu sender hoặc recipient null
+    if (!sender || !recipient) {
+      return res.status(404).json({ msg: 'Sender or recipient not found' });
+    }
+
+    if ((sender.blocked_users || []).includes(recipientId) || (recipient.blocked_users || []).includes(req.user.id)) {
       return res.status(403).json({ msg: 'Không thể gửi tin nhắn cho người dùng này' });
     }
 
@@ -47,13 +53,13 @@ router.post('/', auth, async (req, res) => {
         id: savedMessage.sender._id,
         name: savedMessage.sender.full_name,
         username: savedMessage.sender.username,
-        avatar: savedMessage.sender.avatar_url
+        avatar: getAvatarFallback(savedMessage.sender)
       },
       recipient: {
         id: savedMessage.recipient._id,
         name: savedMessage.recipient.full_name,
         username: savedMessage.recipient.username,
-        avatar: savedMessage.recipient.avatar_url
+        avatar: getAvatarFallback(savedMessage.recipient)
       },
       content: savedMessage.content,
       createdAt: savedMessage.createdAt,
@@ -94,7 +100,7 @@ router.get('/conversations', auth, async (req, res) => {
           partnerId: partnerId,
           username: partner.username,
           name: partner.full_name,
-          avatar: partner.avatar_url,
+          avatar: getAvatarFallback(partner),
           lastMessage: msg.content,
           timestamp: msg.createdAt,
           read: msg.read,
@@ -103,15 +109,17 @@ router.get('/conversations', auth, async (req, res) => {
       }
     });
 
-    // Filter if query exists
+    // Search filter
+    let filtered = conversations;
     if (q) {
-      const regex = new RegExp(q, 'i');
-      const filtered = conversations.filter(c => regex.test(c.name) || regex.test(c.lastMessage));
-      res.json(filtered);
-    } else {
-      res.json(conversations);
+      const qLower = q.toLowerCase();
+      filtered = conversations.filter(c =>
+        c.name.toLowerCase().includes(qLower) ||
+        c.username.toLowerCase().includes(qLower) ||
+        c.lastMessage.toLowerCase().includes(qLower)
+      );
     }
-
+    res.json(filtered);
   } catch (err) {
     console.error(err);
     res.status(500).send('Server Error');

@@ -11,6 +11,7 @@ import '../../widgets/post_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+  static final GlobalKey<_HomeScreenState> globalKey = GlobalKey<_HomeScreenState>();
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -21,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   final _postController = TextEditingController();
   File? _selectedImage;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -96,6 +98,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -108,8 +116,19 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           // Create Post Widget
           Container(
-            padding: const EdgeInsets.all(12),
-            color: Colors.white,
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Column(
               children: [
                 Row(
@@ -117,10 +136,23 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: TextField(
                         controller: _postController,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Bạn đang nghĩ gì?',
                           border: InputBorder.none,
+                          filled: true,
+                          fillColor: Theme.of(context).scaffoldBackgroundColor,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: Colors.blue),
+                          ),
                         ),
+                        minLines: 1,
+                        maxLines: 4,
                       ),
                     ),
                     IconButton(icon: const Icon(Icons.image, color: Colors.blue), onPressed: _pickImage),
@@ -130,7 +162,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (_selectedImage != null)
                   Stack(
                     children: [
-                      Image.file(_selectedImage!, height: 100),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(_selectedImage!, height: 100),
+                      ),
                       Positioned(
                         right: 0,
                         child: IconButton(
@@ -146,6 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 10),
           Expanded(
             child: ListView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.all(16),
               itemCount: _posts.length,
               itemBuilder: (context, index) {

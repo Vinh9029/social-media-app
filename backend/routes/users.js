@@ -3,6 +3,8 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Post = require('../models/Post');
+const { getAvatarFallback } = require('../utils/avatar');
+const { sendNotificationFCM } = require('../utils/fcm');
 
 // Follow / Unfollow User
 router.put('/follow/:id', auth, async (req, res) => {
@@ -26,9 +28,21 @@ router.put('/follow/:id', auth, async (req, res) => {
       res.json({ msg: 'Unfollowed', isFollowing: false });
     } else {
       // Chưa follow -> Thực hiện Follow
-      await targetUser.updateOne({ $push: { followers: req.user.id } });
-      await currentUser.updateOne({ $push: { following: req.params.id } });
+      targetUser.followers.push(currentUser._id);
+      currentUser.following.push(targetUser._id);
+      await targetUser.save();
+      await currentUser.save();
       res.json({ msg: 'Followed', isFollowing: true });
+
+      // Gửi notification FCM khi có người theo dõi mới
+      if (targetUser.fcmToken && targetUser._id.toString() !== currentUser._id.toString()) {
+        await sendNotificationFCM(
+          targetUser.fcmToken,
+          'Bạn có người theo dõi mới!',
+          `${currentUser.full_name} đã theo dõi bạn`,
+          { userId: currentUser._id.toString() }
+        );
+      }
     }
   } catch (err) {
     console.error(err);
@@ -122,30 +136,112 @@ router.put('/unblock/:id', auth, async (req, res) => {
   }
 });
 
-// Get User Profile by ID (Public)
+// Lưu FCM token cho user
+router.put('/fcm-token', auth, async (req, res) => {
+  try {
+    const { token } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ msg: 'User not found' });
+    user.fcmToken = token;
+    await user.save();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Get user profile (with avatar fallback, followers, following, posts, shares)
 router.get('/:id', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.id)
+      .populate('followers', 'username full_name avatar_url')
+      .populate('following', 'username full_name avatar_url');
     if (!user) return res.status(404).json({ msg: 'User not found' });
 
-    // Đồng bộ data trả về cho Frontend
+    // Get posts
+    const posts = await Post.find({ author: user._id })
+      .populate('author', 'username full_name avatar_url')
+      .sort({ createdAt: -1 });
+    // Get shares
+    const shares = await Post.find({ shares: user._id })
+      .populate('author', 'username full_name avatar_url')
+      .sort({ createdAt: -1 });
+
     res.json({
       id: user._id,
-      username: user.username,
-      email: user.email,
       name: user.full_name,
-      avatar: user.avatar_url,
+      username: user.username,
+      avatar: getAvatarFallback(user),
       cover: user.cover_url,
       bio: user.bio,
-      github: user.github,
-      facebook: user.facebook,
-      linkedin: user.linkedin,
-      followers: user.followers,
-      following: user.following
+      followers: user.followers.map(f => ({
+        id: f._id,
+        name: f.full_name,
+        username: f.username,
+        avatar: getAvatarFallback(f)
+      })),
+      following: user.following.map(f => ({
+        id: f._id,
+        name: f.full_name,
+        username: f.username,
+        avatar: getAvatarFallback(f)
+      })),
+      followersCount: user.followers.length,
+      followingCount: user.following.length,
+      posts: posts.map(post => ({
+        id: post._id,
+        content: post.content,
+        image: post.image_url,
+        author: {
+          id: post.author._id,
+          name: post.author.full_name,
+          username: post.author.username,
+          avatar: getAvatarFallback(post.author)
+        },
+        timestamp: post.createdAt
+      })),
+      shares: shares.map(post => ({
+        id: post._id,
+        content: post.content,
+        image: post.image_url,
+        author: {
+          id: post.author._id,
+          name: post.author.full_name,
+          username: post.author.username,
+          avatar: getAvatarFallback(post.author)
+        },
+        timestamp: post.createdAt
+      }))
     });
   } catch (err) {
-    console.error(err.message);
-    if (err.kind === 'ObjectId') return res.status(404).json({ msg: 'User not found' });
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Get saved posts
+router.get('/:id/saved-posts', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).populate({
+      path: 'saved_posts',
+      populate: { path: 'author', select: 'username full_name avatar_url' }
+    });
+    if (!user) return res.status(404).json({ msg: 'User not found' });
+    res.json(user.saved_posts.map(post => ({
+      id: post._id,
+      content: post.content,
+      image: post.image_url,
+      author: {
+        id: post.author._id,
+        name: post.author.full_name,
+        username: post.author.username,
+        avatar: getAvatarFallback(post.author)
+      },
+      timestamp: post.createdAt
+    })));
+  } catch (err) {
+    console.error(err);
     res.status(500).send('Server Error');
   }
 });
