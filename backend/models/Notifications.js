@@ -7,7 +7,7 @@ const NotificationSchema = new mongoose.Schema({
   post: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' }, // Bài viết liên quan (nếu có)
   commentId: { type: mongoose.Schema.Types.ObjectId }, // ID của comment (nếu là reply)
   content: { type: String }, // Nội dung tùy chỉnh (nếu cần)
-  read: { type: Boolean, default: false },
+  read: { type: Boolean, default: false }, // Dùng read thay vì isNew
   createdAt: { type: Date, default: Date.now }
 });
 

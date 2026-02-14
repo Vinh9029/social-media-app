@@ -55,7 +55,7 @@ router.post('/', auth, async (req, res) => {
         `${sender.full_name} đã nhắn cho bạn: ${content}`,
         { userId: sender._id.toString() },
         recipient._id,
-        { avatar: sender.avatar_url, type: 'message', targetId: sender._id.toString() }
+        { avatar: sender.avatar_url, type: 'message', saveToDb: false }
       );
     }
     

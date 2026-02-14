@@ -73,7 +73,12 @@ router.post('/post/:postId', auth, async (req, res) => {
           `${comment.author.full_name} đã bình luận bài viết của bạn`,
           { postId: post._id.toString() },
           post.author._id,
-          { avatar: comment.author.avatar_url, type: 'comment', targetId: post._id.toString() }
+          { 
+            avatar: comment.author.avatar_url, 
+            type: 'comment', 
+            senderId: req.user.id,
+            postId: post._id.toString()
+          }
         );
       }
     } else {
@@ -86,7 +91,12 @@ router.post('/post/:postId', auth, async (req, res) => {
           `${comment.author.full_name} đã trả lời bình luận của bạn`,
           { postId: req.params.postId },
           parentComment.author._id,
-          { avatar: comment.author.avatar_url, type: 'reply', targetId: req.params.postId }
+          { 
+            avatar: comment.author.avatar_url, 
+            type: 'reply', 
+            senderId: req.user.id,
+            postId: req.params.postId
+          }
         );
       }
     }

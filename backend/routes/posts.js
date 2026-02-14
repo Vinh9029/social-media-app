@@ -415,7 +415,11 @@ router.post('/:id/comments', auth, async (req, res) => {
         `${req.user.full_name} đã bình luận bài viết của bạn`,
         { postId: post._id.toString() },
         post.author._id,
-        { avatar: req.user.avatar_url, type: 'comment', targetId: post._id.toString() }
+        { 
+          avatar: req.user.avatar_url, 
+          type: 'comment', 
+          saveToDb: false // Đã lưu thủ công ở trên
+        }
       );
     }
     // ---------------------
@@ -539,7 +543,12 @@ router.post('/:id/share', auth, async (req, res) => {
           `${req.user.full_name} đã chia sẻ bài viết của bạn`,
           { postId: post._id.toString() },
           post.author._id,
-          { avatar: req.user.avatar_url, type: 'share', targetId: post._id.toString() }
+          { 
+            avatar: req.user.avatar_url, 
+            type: 'share', 
+            senderId: req.user.id,
+            postId: post._id.toString()
+          }
         );
       }
     }
@@ -566,7 +575,12 @@ router.put('/:id/like', auth, async (req, res) => {
           `${req.user.full_name} đã thích bài viết của bạn`,
           { postId: post._id.toString() },
           post.author._id,
-          { avatar: req.user.avatar_url, type: 'like', targetId: post._id.toString() }
+          { 
+            avatar: req.user.avatar_url, 
+            type: 'like', 
+            senderId: req.user.id,
+            postId: post._id.toString()
+          }
         );
       }
     } else {

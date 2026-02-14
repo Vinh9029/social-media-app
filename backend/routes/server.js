@@ -10,9 +10,14 @@ app.use(cors());
 app.use(express.json());
 
 // Database Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/social-app')
+const db = process.env.MONGODB_URI;
+if (!db) {
+  console.warn("⚠️ CẢNH BÁO: Chưa tìm thấy MONGODB_URI trong file .env. Server đang thử kết nối Localhost...");
+}
+
+mongoose.connect(db || 'mongodb://localhost:27017/social-app')
   .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.log('MongoDB Connection Error:', err));
+  .catch(err => console.log('MongoDB Connection Error (Hãy kiểm tra lại file .env):', err));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));

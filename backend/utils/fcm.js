@@ -20,15 +20,16 @@ async function sendNotificationFCM(token, title, body, data = {}, dbUserId = nul
       data
     });
     // Lưu notification vào database nếu có dbUserId
-    if (dbUserId) {
+    // Chỉ lưu nếu có senderId và không bị tắt cờ saveToDb
+    if (dbUserId && options.senderId && options.saveToDb !== false) {
       await Notification.create({
-        user: dbUserId,
-        title,
-        body,
-        avatar: options.avatar || '',
-        type: options.type || '',
-        targetId: options.targetId || '',
-        isNew: true
+        recipient: dbUserId,
+        sender: options.senderId,
+        type: options.type || 'system',
+        post: options.postId || null, // postId được truyền trong options
+        content: body,
+        read: false
+        // Bỏ isNew vì là từ khóa dự phòng của Mongoose
       });
     }
   } catch (err) {
