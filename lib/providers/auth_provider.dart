@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../../config.dart';
 import '../../models/user.dart';
 
@@ -65,6 +66,18 @@ class AuthProvider with ChangeNotifier {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', _token!);
         await fetchUserProfile();
+        // Gửi FCM token lên backend
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        if (fcmToken != null && _token != null) {
+          await http.put(
+            Uri.parse('$API_URL/api/users/fcm-token'),
+            headers: {
+              'Content-Type': 'application/json',
+              'x-auth-token': _token!
+            },
+            body: json.encode({'token': fcmToken}),
+          );
+        }
         return true;
       }
     } catch (e) {

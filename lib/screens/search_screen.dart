@@ -179,12 +179,14 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundImage: user.avatar != null
-              ? CachedNetworkImageProvider(user.avatar!)
-              : null,
-          child: user.avatar == null ? const Icon(Icons.person) : null,
-        ),
+        leading: (user.avatar != null && user.avatar!.isNotEmpty)
+            ? CachedNetworkImage(
+                imageUrl: user.avatar!,
+                imageBuilder: (context, imageProvider) => CircleAvatar(backgroundImage: imageProvider),
+                placeholder: (context, url) => const CircleAvatar(child: CircularProgressIndicator(strokeWidth: 2)),
+                errorWidget: (context, url, error) => const CircleAvatar(child: Icon(Icons.person)),
+              )
+            : const CircleAvatar(child: Icon(Icons.person)),
         title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text('@${user.username}'),
         trailing: const Icon(LucideIcons.chevronRight, size: 16),

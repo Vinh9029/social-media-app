@@ -62,13 +62,17 @@ class PostCard extends StatelessWidget {
                       arguments: post.author.id,
                     );
                   },
-                  child: CircleAvatar(
-                    radius: 22,
-                    backgroundImage: post.author.avatar != null
-                        ? CachedNetworkImageProvider(post.author.avatar!)
-                        : null,
-                    child: post.author.avatar == null ? const Icon(Icons.person) : null,
-                  ),
+                  child: (post.author.avatar != null && post.author.avatar!.isNotEmpty)
+                      ? CachedNetworkImage(
+                          imageUrl: post.author.avatar!,
+                          imageBuilder: (context, imageProvider) => CircleAvatar(
+                            radius: 22,
+                            backgroundImage: imageProvider,
+                          ),
+                          placeholder: (context, url) => const CircleAvatar(radius: 22, child: CircularProgressIndicator(strokeWidth: 2)),
+                          errorWidget: (context, url, error) => const CircleAvatar(radius: 22, child: Icon(Icons.person)),
+                        )
+                      : const CircleAvatar(radius: 22, child: Icon(Icons.person)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

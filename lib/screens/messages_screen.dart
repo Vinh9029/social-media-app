@@ -102,10 +102,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         onTap: () {
                           Navigator.pushNamed(context, '/profile', arguments: conv.partnerId);
                         },
-                        child: CircleAvatar(
-                          backgroundImage: conv.avatar != null ? CachedNetworkImageProvider(conv.avatar!) : null,
-                          child: conv.avatar == null ? const Icon(Icons.person) : null,
-                        ),
+                        child: (conv.avatar != null && conv.avatar!.isNotEmpty)
+                            ? CachedNetworkImage(
+                                imageUrl: conv.avatar!,
+                                imageBuilder: (context, imageProvider) => CircleAvatar(backgroundImage: imageProvider),
+                                placeholder: (context, url) => const CircleAvatar(child: CircularProgressIndicator(strokeWidth: 2)),
+                                errorWidget: (context, url, error) => const CircleAvatar(child: Icon(Icons.person)),
+                              )
+                            : const CircleAvatar(child: Icon(Icons.person)),
                       ),
                       title: GestureDetector(
                         onTap: () {

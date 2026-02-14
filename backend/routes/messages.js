@@ -47,6 +47,18 @@ router.post('/', auth, async (req, res) => {
     await savedMessage.populate('sender', 'username full_name avatar_url');
     await savedMessage.populate('recipient', 'username full_name avatar_url');
     
+    // Gửi notification khi có tin nhắn mới
+    if (recipient.fcmToken && recipient._id.toString() !== req.user.id) {
+      await require('../utils/fcm').sendNotificationFCM(
+        recipient.fcmToken,
+        'Tin nhắn mới!',
+        `${sender.full_name} đã nhắn cho bạn: ${content}`,
+        { userId: sender._id.toString() },
+        recipient._id,
+        { avatar: sender.avatar_url, type: 'message', targetId: sender._id.toString() }
+      );
+    }
+    
     res.json({
       id: savedMessage._id,
       sender: {

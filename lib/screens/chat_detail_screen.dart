@@ -143,6 +143,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                             imageUrl: msg.content,
                             width: 150,
                             placeholder: (context, url) => const CircularProgressIndicator(),
+                            errorWidget: (context, url, error) => const Icon(Icons.broken_image, size: 50, color: Colors.grey),
                           )
                         : Text(
                             msg.content,

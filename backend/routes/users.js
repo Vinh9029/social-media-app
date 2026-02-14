@@ -40,7 +40,9 @@ router.put('/follow/:id', auth, async (req, res) => {
           targetUser.fcmToken,
           'Bạn có người theo dõi mới!',
           `${currentUser.full_name} đã theo dõi bạn`,
-          { userId: currentUser._id.toString() }
+          { userId: currentUser._id.toString() },
+          targetUser._id,
+          { avatar: currentUser.avatar_url, type: 'follow', targetId: currentUser._id.toString() }
         );
       }
     }

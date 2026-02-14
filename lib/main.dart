@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/login_screen.dart';
@@ -8,8 +10,11 @@ import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/messages_screen.dart';
+import 'screens/notification_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(
     MultiProvider(
       providers: [
@@ -19,6 +24,37 @@ void main() {
       child: const MainApp(),
     ),
   );
+}
+
+class NotificationService {
+  static final List<Map<String, dynamic>> notifications = [];
+  static bool hasNewNotification = false;
+
+  static Future<void> initFCM(BuildContext context) async {
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+    String? token = await messaging.getToken();
+    // TODO: Gửi token này lên backend qua API /api/users/fcm-token
+    print('FCM Token: $token');
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      if (message.notification != null) {
+        notifications.insert(0, {
+          'title': message.notification!.title ?? '',
+          'body': message.notification!.body ?? '',
+          'avatar': message.data['avatar'] ?? '',
+          'isNew': true,
+        });
+        hasNewNotification = true;
+        // Hiển thị snackbar hoặc cập nhật UI
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message.notification!.title ?? 'Có thông báo mới!')),
+        );
+      }
+    });
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      // TODO: Điều hướng đến trang liên quan nếu cần
+    });
+  }
 }
 
 class MainApp extends StatelessWidget {
@@ -108,6 +144,18 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  bool _hasNewNotification = false;
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationService.initFCM(context);
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      setState(() {
+        _hasNewNotification = true;
+      });
+    });
+  }
   
   // Đảm bảo thứ tự các màn hình khớp với NavigationBar bên dưới
   final List<Widget> _screens = [
@@ -141,7 +189,30 @@ class _MainScreenState extends State<MainScreen> {
               ),
               actions: [
                 IconButton(icon: const Icon(LucideIcons.search), onPressed: _navigateToExplore),
-                IconButton(icon: const Icon(LucideIcons.bell), onPressed: () {}),
+                Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(LucideIcons.bell),
+                      onPressed: () async {
+                        setState(() => _hasNewNotification = false);
+                        await Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()));
+                      },
+                    ),
+                    if (_hasNewNotification || NotificationService.hasNewNotification)
+                      Positioned(
+                        right: 10,
+                        top: 10,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ) 
           : null,

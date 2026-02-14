@@ -204,6 +204,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ? CachedNetworkImage(
                           imageUrl: user.cover!,
                           fit: BoxFit.cover,
+                          errorWidget: (context, url, error) => Container(color: Colors.grey),
                           width: double.infinity,
                         )
                       : Container(
@@ -222,15 +223,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Material(
                         elevation: 8,
                         shape: const CircleBorder(),
-                        child: CircleAvatar(
-                          radius: 60,
-                          backgroundImage: user.avatar != null
-                              ? CachedNetworkImageProvider(user.avatar!)
-                              : null,
-                          child: user.avatar == null
-                              ? const Icon(Icons.person, size: 60)
-                              : null,
-                        ),
+                        child: (user.avatar != null && user.avatar!.isNotEmpty)
+                            ? CachedNetworkImage(
+                                imageUrl: user.avatar!,
+                                imageBuilder: (context, imageProvider) => CircleAvatar(
+                                  radius: 60,
+                                  backgroundImage: imageProvider,
+                                ),
+                                placeholder: (context, url) => const CircleAvatar(radius: 60, child: CircularProgressIndicator()),
+                                errorWidget: (context, url, error) => const CircleAvatar(radius: 60, child: Icon(Icons.person, size: 60)),
+                              )
+                            : const CircleAvatar(radius: 60, child: Icon(Icons.person, size: 60)),
                       ),
                     ),
                   ),

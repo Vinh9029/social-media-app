@@ -70,7 +70,9 @@ router.post('/post/:postId', auth, async (req, res) => {
           post.author.fcmToken,
           'Có bình luận mới!',
           `${comment.author.full_name} đã bình luận bài viết của bạn`,
-          { postId: post._id.toString() }
+          { postId: post._id.toString() },
+          post.author._id,
+          { avatar: comment.author.avatar_url, type: 'comment', targetId: post._id.toString() }
         );
       }
     } else {
@@ -81,7 +83,9 @@ router.post('/post/:postId', auth, async (req, res) => {
           parentComment.author.fcmToken,
           'Có phản hồi mới!',
           `${comment.author.full_name} đã trả lời bình luận của bạn`,
-          { postId: req.params.postId }
+          { postId: req.params.postId },
+          parentComment.author._id,
+          { avatar: comment.author.avatar_url, type: 'reply', targetId: req.params.postId }
         );
       }
     }
