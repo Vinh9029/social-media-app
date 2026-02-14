@@ -3,6 +3,18 @@ const router = express.Router();
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
+// Get Blocked Users List
+// QUAN TRỌNG: Phải đặt route này TRƯỚC route /:id để tránh bị nhầm "blocked" là một ID
+router.get('/blocked', auth, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user.id).populate('blocked_users', 'full_name username avatar_url');
+    res.json(currentUser.blocked_users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
 // Get User Profile by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -85,17 +97,6 @@ router.put('/unblock/:id', auth, async (req, res) => {
     const currentUser = await User.findById(req.user.id);
     currentUser.blocked_users = currentUser.blocked_users.filter(id => id.toString() !== req.params.id);
     await currentUser.save();
-    res.json(currentUser.blocked_users);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
-  }
-});
-
-// Get Blocked Users List
-router.get('/blocked', auth, async (req, res) => {
-  try {
-    const currentUser = await User.findById(req.user.id).populate('blocked_users', 'full_name username avatar_url');
     res.json(currentUser.blocked_users);
   } catch (err) {
     console.error(err);
