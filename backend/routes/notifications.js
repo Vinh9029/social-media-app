@@ -19,6 +19,8 @@ router.get('/', auth, async (req, res) => {
       title: n.type === 'like' ? 'Thích bài viết' : n.type === 'comment' ? 'Bình luận mới' : 'Thông báo',
       body: `${n.sender.full_name} ${n.content || 'đã tương tác với bạn'}`,
       avatar: n.sender.avatar_url,
+      senderId: n.sender._id,
+      postId: n.post ? n.post._id : null,
       isNew: !n.read,
       timestamp: n.createdAt
     }));

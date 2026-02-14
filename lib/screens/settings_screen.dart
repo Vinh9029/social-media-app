@@ -221,8 +221,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: CircleAvatar(
-                    backgroundImage: user['avatar_url'] != null ? NetworkImage(user['avatar_url']) : null,
-                    child: user['avatar_url'] == null ? const Icon(Icons.person) : null,
+                    // Xử lý hiển thị ảnh chặn, ưu tiên avatar rồi đến avatar_url
+                    backgroundImage: (user['avatar'] != null || user['avatar_url'] != null)
+                        ? NetworkImage(user['avatar'] ?? user['avatar_url'])
+                        : null,
+                    child: (user['avatar'] == null && user['avatar_url'] == null) 
+                        ? const Icon(Icons.person) : null,
                   ),
                   title: Text(user['full_name'] ?? 'Unknown'),
                   trailing: TextButton(

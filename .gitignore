@@ -48,3 +48,9 @@ app.*.map.json
 backend/node_modules/
 backend/.env
 backend/uploads/
+backend/keys/
+
+# Android Signing & Secrets
+android/key.properties
+**/*.jks
+**/*.keystore

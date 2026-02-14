@@ -93,16 +93,25 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: TextField(
-          controller: _searchController,
-          onChanged: _onSearchChanged,
-          decoration: const InputDecoration(
-            hintText: 'Tìm kiếm bài viết, người dùng...',
-            border: InputBorder.none,
-            hintStyle: TextStyle(color: Colors.grey),
+        titleSpacing: 0,
+        title: Container(
+          margin: const EdgeInsets.only(right: 16),
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(20),
           ),
-          style: const TextStyle(color: Colors.black),
-          autofocus: false,
+          child: TextField(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            decoration: const InputDecoration(
+              hintText: 'Tìm kiếm...',
+              border: InputBorder.none,
+              prefixIcon: Icon(Icons.search, color: Colors.grey),
+              contentPadding: EdgeInsets.symmetric(vertical: 8),
+            ),
+            style: const TextStyle(color: Colors.black),
+          ),
         ),
         bottom: TabBar(
           controller: _tabController,

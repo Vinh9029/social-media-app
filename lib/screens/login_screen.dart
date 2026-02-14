@@ -16,6 +16,14 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
+  // Hàm xử lý đăng nhập xã hội (Placeholder)
+  Future<void> _handleSocialLogin(String provider) async {
+    // Sau này bạn sẽ thêm logic gọi API backend tại đây
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Đang kết nối với $provider... (Cần cấu hình API)')),
+    );
+  }
+
   Future<void> _handleLogin() async {
     setState(() => _isLoading = true);
     final success = await Provider.of<AuthProvider>(context, listen: false)
@@ -93,11 +101,11 @@ class _LoginScreenState extends State<LoginScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildSocialButton(LucideIcons.facebook, Colors.blue),
+                _buildSocialButton(LucideIcons.facebook, Colors.blue, onTap: () => _handleSocialLogin('Facebook')),
                 const SizedBox(width: 20),
-                _buildSocialButton(LucideIcons.github, Colors.black),
+                _buildSocialButton(LucideIcons.github, Colors.black, onTap: () => _handleSocialLogin('Github')),
                 const SizedBox(width: 20),
-                _buildSocialButton(Icons.g_mobiledata, Colors.red, size: 32),
+                _buildSocialButton(Icons.g_mobiledata, Colors.red, size: 32, onTap: () => _handleSocialLogin('Google')),
               ],
             ),
             const SizedBox(height: 24),
@@ -125,15 +133,18 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildSocialButton(IconData icon, Color color, {double size = 24}) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        shape: BoxShape.circle,
-        color: Colors.white,
+  Widget _buildSocialButton(IconData icon, Color color, {double size = 24, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          shape: BoxShape.circle,
+          color: Colors.white,
+        ),
+        child: Icon(icon, color: color, size: size),
       ),
-      child: Icon(icon, color: color, size: size),
     );
   }
 }

@@ -301,7 +301,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 200.0, // Giảm chiều cao cover một chút để avatar overlap đẹp hơn
+            expandedHeight: 220.0, 
             floating: false,
             pinned: true,
             leading: isMe ? null : const BackButton(color: Colors.white),
@@ -359,7 +359,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   // Avatar Overlap Logic
                   Transform.translate(
-                    offset: const Offset(0, -60), // Đẩy avatar lên trên
+                    offset: const Offset(0, -50), // Đẩy avatar lên trên để chồng lấn
                     child: Center(
                       child: GestureDetector(
                         onTap: isMe ? () => _showImagePickerOptions('avatar') : null,
@@ -369,12 +369,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             color: isDark ? const Color(0xFF111827) : Colors.white,
                             shape: BoxShape.circle,
                           ),
-                          child: CircleAvatar(
-                            radius: 60,
-                            backgroundImage: (user.avatar != null && user.avatar!.isNotEmpty)
-                                ? CachedNetworkImageProvider(user.avatar!)
-                                : null,
-                            child: user.avatar == null ? const Icon(Icons.person, size: 60) : null,
+                          // Yêu cầu 2: Load data url ảnh từ database
+                          child: ClipOval(
+                            child: (user.avatar != null && user.avatar!.isNotEmpty)
+                                ? CachedNetworkImage(
+                                    imageUrl: user.avatar!,
+                                    width: 120,
+                                    height: 120,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => const CircularProgressIndicator(),
+                                    errorWidget: (context, url, error) => const Icon(Icons.person, size: 60),
+                                  )
+                                : const SizedBox(width: 120, height: 120, child: Icon(Icons.person, size: 60)),
                           ),
                         ),
                       ),

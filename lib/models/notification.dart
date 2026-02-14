@@ -3,29 +3,32 @@ class NotificationModel {
   final String title;
   final String body;
   final String avatar;
+  final String timestamp;
   final bool isNew;
-  final String? type;
-  final String? targetId;
+  final String? senderId;
+  final String? postId;
 
   NotificationModel({
     required this.id,
     required this.title,
     required this.body,
     required this.avatar,
-    this.isNew = false,
-    this.type,
-    this.targetId,
+    required this.timestamp,
+    required this.isNew,
+    this.senderId,
+    this.postId,
   });
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
       id: json['id'] ?? '',
-      title: json['title'] ?? '',
+      title: json['title'] ?? 'Thông báo',
       body: json['body'] ?? '',
       avatar: json['avatar'] ?? '',
+      timestamp: json['timestamp'] ?? '',
       isNew: json['isNew'] ?? false,
-      type: json['type'],
-      targetId: json['targetId'],
+      senderId: json['senderId'],
+      postId: json['postId'],
     );
   }
 }

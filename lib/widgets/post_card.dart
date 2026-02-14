@@ -110,6 +110,9 @@ class _PostCardState extends State<PostCard> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final isMe = currentUser?.id == widget.post.author.id;
+
     return GestureDetector(
       onTap: widget.isDetail ? null : () async {
         // Await kết quả trả về từ Detail Screen để sync data
@@ -195,18 +198,19 @@ class _PostCardState extends State<PostCard> {
                   ),
                 ),
                 // Edit Button Logic (Giả lập editCount < 3)
-                PopupMenuButton<String>(
-                  icon: const Icon(LucideIcons.moreHorizontal, color: Colors.grey),
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      // Handle edit post logic
-                    }
-                  },
-                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                    const PopupMenuItem<String>(value: 'edit', child: Text('Chỉnh sửa bài viết')),
-                    const PopupMenuItem<String>(value: 'delete', child: Text('Xóa bài viết')),
-                  ],
-                ),
+                if (isMe)
+                  PopupMenuButton<String>(
+                    icon: const Icon(LucideIcons.moreHorizontal, color: Colors.grey),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        // Handle edit post logic
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(value: 'edit', child: Text('Chỉnh sửa bài viết')),
+                      const PopupMenuItem<String>(value: 'delete', child: Text('Xóa bài viết')),
+                    ],
+                  ),
               ],
             ),
             
