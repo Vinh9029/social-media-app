@@ -25,6 +25,9 @@ const UserSchema = new mongoose.Schema({
   saved_posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
   blocked_users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
+  // Lưu lịch sử ảnh đã upload để làm bộ sưu tập
+  uploaded_images: [{ type: String }],
+
   fcmToken: { type: String },
   
   createdAt: { type: Date, default: Date.now }

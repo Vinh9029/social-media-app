@@ -20,8 +20,13 @@ const CommentSchema = new mongoose.Schema({
     default: null 
   },
   
-  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  // Thay đổi từ mảng ID sang mảng Object để lưu loại reaction
+  reactions: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    type: { type: String, enum: ['like', 'love', 'haha', 'wow', 'sad', 'angry'], default: 'like' }
+  }],
   
+  editCount: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 

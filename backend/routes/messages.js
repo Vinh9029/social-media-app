@@ -103,6 +103,7 @@ router.get('/conversations', auth, async (req, res) => {
 
       const isSender = msg.sender._id.toString() === req.user.id;
       const partner = isSender ? msg.recipient : msg.sender;
+      if (!partner) return; // Bỏ qua nếu user đã bị xóa
       if(!partner) return;
       const partnerId = partner._id.toString();
 

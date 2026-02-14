@@ -10,13 +10,13 @@ const { sendNotificationFCM } = require('../utils/fcm');
 // Helper: build comment tree
 async function buildCommentTree(comments) {
   const map = {};
-  comments.forEach(c => map[c._id] = { ...c._doc, replies: [] });
+  comments.forEach(c => map[c.id] = { ...c, replies: [] });
   const roots = [];
   comments.forEach(c => {
     if (c.parentId) {
-      if (map[c.parentId]) map[c.parentId].replies.push(map[c._id]);
+      if (map[c.parentId]) map[c.parentId].replies.push(map[c.id]);
     } else {
-      roots.push(map[c._id]);
+      roots.push(map[c.id]);
     }
   });
   return roots;
@@ -39,7 +39,8 @@ router.get('/post/:postId', async (req, res) => {
       },
       timestamp: c.createdAt,
       parentId: c.parentId,
-      likes: c.likes ? c.likes.length : 0,
+      reactions: c.reactions || [],
+      editCount: c.editCount || 0,
       replies: []
     }));
     const tree = await buildCommentTree(formatted);
@@ -100,7 +101,8 @@ router.post('/post/:postId', auth, async (req, res) => {
       },
       timestamp: comment.createdAt,
       parentId: comment.parentId,
-      likes: 0,
+      reactions: [],
+      editCount: 0,
       replies: []
     });
   } catch (err) {
@@ -109,19 +111,44 @@ router.post('/post/:postId', auth, async (req, res) => {
   }
 });
 
-// Like/Unlike comment
-router.put('/:id/like', auth, async (req, res) => {
+// Reaction to comment
+router.put('/:id/reaction', auth, async (req, res) => {
   try {
+    const { type } = req.body; // 'like', 'love', 'haha', etc.
     const comment = await Comment.findById(req.params.id);
     if (!comment) return res.status(404).json({ msg: 'Comment not found' });
-    const idx = comment.likes.indexOf(req.user.id);
+
+    const idx = comment.reactions.findIndex(r => r.user.toString() === req.user.id);
     if (idx === -1) {
-      comment.likes.push(req.user.id);
+      comment.reactions.push({ user: req.user.id, type: type || 'like' });
     } else {
-      comment.likes.splice(idx, 1);
+      // Nếu bấm lại icon cũ thì remove (toggle off), nếu icon mới thì update
+      if (comment.reactions[idx].type === type) {
+        comment.reactions.splice(idx, 1);
+      } else {
+        comment.reactions[idx].type = type;
+      }
     }
     await comment.save();
-    res.json({ likes: comment.likes.length });
+    res.json(comment.reactions);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Edit comment
+router.put('/:id', auth, async (req, res) => {
+  try {
+    const { content } = req.body;
+    const comment = await Comment.findById(req.params.id);
+    if (!comment) return res.status(404).json({ msg: 'Comment not found' });
+    if (comment.author.toString() !== req.user.id) return res.status(401).json({ msg: 'Unauthorized' });
+
+    comment.content = content;
+    comment.editCount = (comment.editCount || 0) + 1;
+    await comment.save();
+    res.json(comment);
   } catch (err) {
     console.error(err);
     res.status(500).send('Server Error');

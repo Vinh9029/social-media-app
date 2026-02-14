@@ -10,6 +10,7 @@ const User = require('../models/User');
 // Get Trending Posts (For Explore Page)
 router.get('/trending', async (req, res) => {
   try {
+    // Schema Post cần có editCount, nếu chưa có thì mongoose sẽ trả về undefined, ta default là 0
     // Lấy bài viết, sắp xếp theo số lượng reaction giảm dần
     // Lưu ý: Đây là cách đơn giản, thực tế có thể cần aggregate framework
     const posts = await Post.find()
@@ -42,12 +43,104 @@ router.get('/trending', async (req, res) => {
         shares: 0,
         timestamp: post.createdAt,
         editedAt: post.editedAt,
+        editCount: post.editCount || 0,
         originalPost: post.originalPost
       };
     }));
     res.json(formattedPosts);
   } catch (err) {
     console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Get posts by specific user
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const posts = await Post.find({ author: req.params.userId })
+      .populate('author', 'username full_name avatar_url')
+      .sort({ createdAt: -1 });
+    
+    // Format data (giống route get all)
+    const formatted = await Promise.all(posts.map(async (post) => {
+      const commentsCount = await Comment.countDocuments({ post: post._id });
+      return {
+        id: post._id,
+        author: post.author ? {
+          id: post.author._id,
+          name: post.author.full_name,
+          username: post.author.username,
+          avatar: post.author.avatar_url
+        } : { id: 'unknown', name: 'Unknown', avatar: '' },
+        content: post.content,
+        image: post.image_url,
+        likes: post.reactions ? post.reactions.length : 0,
+        reactions: post.reactions || [],
+        comments: commentsCount,
+        shares: post.shares ? post.shares.length : 0,
+        timestamp: post.createdAt,
+        title: post.title,
+        editCount: post.editCount || 0
+      };
+    }));
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+});
+
+// Get posts shared by user
+router.get('/shared/:userId', async (req, res) => {
+  try {
+    const posts = await Post.find({ shares: req.params.userId })
+      .populate('author', 'username full_name avatar_url')
+      .sort({ createdAt: -1 });
+      
+    // Format data... (rút gọn cho ngắn, logic giống trên)
+    const formatted = await Promise.all(posts.map(async (post) => {
+      const commentsCount = await Comment.countDocuments({ post: post._id });
+      return {
+        id: post._id,
+        author: post.author ? { id: post.author._id, name: post.author.full_name, username: post.author.username, avatar: post.author.avatar_url } : {},
+        content: post.content,
+        image: post.image_url,
+        likes: post.reactions ? post.reactions.length : 0,
+        reactions: post.reactions || [],
+        comments: commentsCount,
+        shares: post.shares ? post.shares.length : 0,
+        timestamp: post.createdAt
+      };
+    }));
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+});
+
+// Get saved posts
+router.get('/saved', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate({
+      path: 'saved_posts',
+      populate: { path: 'author', select: 'username full_name avatar_url' }
+    });
+    
+    const formatted = await Promise.all(user.saved_posts.map(async (post) => {
+      const commentsCount = await Comment.countDocuments({ post: post._id });
+      return {
+        id: post._id,
+        author: post.author ? { id: post.author._id, name: post.author.full_name, username: post.author.username, avatar: post.author.avatar_url } : {},
+        content: post.content,
+        image: post.image_url,
+        likes: post.reactions ? post.reactions.length : 0,
+        reactions: post.reactions || [],
+        comments: commentsCount,
+        shares: post.shares ? post.shares.length : 0,
+        timestamp: post.createdAt
+      };
+    }));
+    res.json(formatted);
+  } catch (err) {
     res.status(500).send('Server Error');
   }
 });
@@ -98,6 +191,7 @@ router.get('/', async (req, res) => {
         timestamp: post.createdAt,
         title: post.title,
         editedAt: post.editedAt,
+        editCount: post.editCount || 0,
         originalPost: post.originalPost
       };
     }));
@@ -147,6 +241,7 @@ router.post('/', auth, async (req, res) => {
         shares: 0,
         timestamp: post.createdAt,
         title: post.title,
+        editCount: 0,
         originalPost: null
     });
   } catch (err) {
@@ -229,6 +324,7 @@ router.get('/:id', async (req, res) => {
       timestamp: post.createdAt,
       title: post.title,
       editedAt: post.editedAt,
+      editCount: post.editCount || 0,
       originalPost: post.originalPost
     });
   } catch (err) {
@@ -396,6 +492,7 @@ router.put('/:id', auth, async (req, res) => {
 
     post.content = req.body.content || post.content;
     post.editedAt = Date.now();
+    post.editCount = (post.editCount || 0) + 1;
     
     await post.save();
     res.json(post);

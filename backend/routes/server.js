@@ -16,7 +16,13 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/social-ap
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/posts', require('./posts'));
+app.use('/api/posts', require('./routes/posts'));
+app.use('/api/comments', require('./routes/comments'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/messages', require('./routes/messages'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/upload', require('./routes/upload'));
+app.use('/api/search', require('./routes/search'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../providers/auth_provider.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -76,9 +78,62 @@ class _LoginScreenState extends State<LoginScreen> {
                 ? const CircularProgressIndicator(color: Colors.white) 
                 : const Text('Đăng nhập', style: TextStyle(fontSize: 16, color: Colors.white)),
             ),
+            const SizedBox(height: 24),
+            const Row(
+              children: [
+                Expanded(child: Divider()),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text("Hoặc đăng nhập với", style: TextStyle(color: Colors.grey)),
+                ),
+                Expanded(child: Divider()),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildSocialButton(LucideIcons.facebook, Colors.blue),
+                const SizedBox(width: 20),
+                _buildSocialButton(LucideIcons.github, Colors.black),
+                const SizedBox(width: 20),
+                _buildSocialButton(Icons.g_mobiledata, Colors.red, size: 32),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text("Chưa có tài khoản? "),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                    );
+                  },
+                  child: const Text(
+                    "Đăng ký ngay",
+                    style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSocialButton(IconData icon, Color color, {double size = 24}) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        shape: BoxShape.circle,
+        color: Colors.white,
+      ),
+      child: Icon(icon, color: color, size: size),
     );
   }
 }

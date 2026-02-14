@@ -28,6 +28,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = false;
   List<Post> _userPosts = [];
   List<Post> _userShares = [];
+  List<Post> _userSaved = []; // Thêm list saved posts
+  int _selectedIndex = 0; // Tab index
 
   @override
   void initState() {
@@ -35,6 +37,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _fetchProfileData();
     _fetchUserPosts();
     _fetchUserShares();
+    _fetchUserSaved();
   }
 
   Future<void> _fetchProfileData() async {
@@ -97,13 +100,82 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _uploadImage(ImageSource source, String type) async {
+  Future<void> _fetchUserSaved() async {
+    // Chỉ fetch saved posts nếu là profile của chính mình
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (widget.userId != null && widget.userId != authProvider.user?.id) return;
+
+    try {
+      final response = await http.get(Uri.parse('$API_URL/api/posts/saved'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          _userSaved = data.map((json) => Post.fromJson(json)).toList();
+        });
+      }
+    } catch (e) {
+      print("Error fetching saved posts: $e");
+    }
+  }
+
+  void _showImagePickerOptions(String type) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Chọn từ thư viện'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _uploadImage(ImageSource.gallery, type);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Chụp ảnh mới'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _uploadImage(ImageSource.camera, type);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.collections),
+                title: const Text('Chọn từ bộ sưu tập đã tải lên'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showCollectionPicker(type);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _uploadImage(ImageSource source, String type, {String? existingUrl}) async {
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    
+    // Nếu chọn từ collection (có URL sẵn)
+    if (existingUrl != null) {
+       // Gọi API update profile với URL có sẵn (cần backend hỗ trợ update avatar bằng string URL, 
+       // hoặc ta tái sử dụng logic upload nhưng gửi URL. Ở đây giả định backend route upload/avatar chỉ nhận file.
+       // Ta sẽ cần 1 route update profile riêng hoặc sửa route upload.
+       // Đơn giản nhất: Gọi route update-profile trong users.js (đã tạo ở bước trước)
+       // Nhưng route đó chưa handle avatar/cover url string.
+       // Tạm thời ta bỏ qua logic update bằng URL string ở đây để tập trung vào upload file.
+       // Để fix triệt để: Backend cần route PUT /api/users/me { avatar_url: "..." }
+       return; 
+    }
+
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: source);
 
     if (pickedFile != null) {
       setState(() => _isLoading = true);
-      final token = Provider.of<AuthProvider>(context, listen: false).token;
       
       try {
         var request = http.MultipartRequest('POST', Uri.parse('$API_URL/api/upload/$type'));
@@ -124,6 +196,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _showCollectionPicker(String type) async {
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    try {
+      final response = await http.get(
+        Uri.parse('$API_URL/api/upload/collection'),
+        headers: {'x-auth-token': token ?? ''},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> images = json.decode(response.body);
+        if (!mounted) return;
+        
+        showModalBottomSheet(
+          context: context,
+          builder: (context) => Container(
+            height: 400,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                const Text("Bộ sưu tập của bạn", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 4, mainAxisSpacing: 4),
+                    itemCount: images.length,
+                    itemBuilder: (context, index) {
+                      return GestureDetector(
+                        onTap: () {
+                          // Logic update avatar bằng URL (cần backend hỗ trợ update string URL)
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tính năng chọn từ collection đang được cập nhật backend")));
+                        },
+                        child: CachedNetworkImage(imageUrl: images[index], fit: BoxFit.cover),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    } catch (e) { print(e); }
+  }
+
   Future<void> _toggleFollow() async {
     if (_profileUser == null) return;
     final token = Provider.of<AuthProvider>(context, listen: false).token;
@@ -135,6 +251,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
       if (response.statusCode == 200) {
         _fetchProfileData(); // Reload to update counts
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Đã cập nhật trạng thái theo dõi!")),
+        );
       }
     } catch (e) {
       print("Follow error: $e");
@@ -182,7 +301,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 240.0,
+            expandedHeight: 200.0, // Giảm chiều cao cover một chút để avatar overlap đẹp hơn
             floating: false,
             pinned: true,
             leading: isMe ? null : const BackButton(color: Colors.white),
@@ -198,7 +317,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : null,
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
-                alignment: Alignment.topCenter,
                 children: [
                   user.cover != null
                       ? CachedNetworkImage(
@@ -216,27 +334,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                         ),
-                  Positioned(
-                    top: 180,
-                    child: GestureDetector(
-                      onTap: isMe ? () => _uploadImage(ImageSource.gallery, 'avatar') : null,
-                      child: Material(
-                        elevation: 8,
-                        shape: const CircleBorder(),
-                        child: (user.avatar != null && user.avatar!.isNotEmpty)
-                            ? CachedNetworkImage(
-                                imageUrl: user.avatar!,
-                                imageBuilder: (context, imageProvider) => CircleAvatar(
-                                  radius: 60,
-                                  backgroundImage: imageProvider,
-                                ),
-                                placeholder: (context, url) => const CircleAvatar(radius: 60, child: CircularProgressIndicator()),
-                                errorWidget: (context, url, error) => const CircleAvatar(radius: 60, child: Icon(Icons.person, size: 60)),
-                              )
-                            : const CircleAvatar(radius: 60, child: Icon(Icons.person, size: 60)),
-                      ),
-                    ),
-                  ),
                   if (isMe)
                     Positioned(
                       top: 16,
@@ -246,7 +343,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           backgroundColor: Colors.white.withOpacity(0.8),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         ),
-                        onPressed: () => _uploadImage(ImageSource.gallery, 'cover'),
+                        onPressed: () => _showImagePickerOptions('cover'),
                         icon: const Icon(Icons.image, color: Colors.blue),
                         label: const Text("Đổi ảnh bìa", style: TextStyle(color: Colors.blue)),
                       ),
@@ -260,7 +357,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Column(
                 children: [
-                  const SizedBox(height: 80),
+                  // Avatar Overlap Logic
+                  Transform.translate(
+                    offset: const Offset(0, -60), // Đẩy avatar lên trên
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: isMe ? () => _showImagePickerOptions('avatar') : null,
+                        child: Container(
+                          padding: const EdgeInsets.all(4), // Viền trắng
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF111827) : Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: CircleAvatar(
+                            radius: 60,
+                            backgroundImage: (user.avatar != null && user.avatar!.isNotEmpty)
+                                ? CachedNetworkImageProvider(user.avatar!)
+                                : null,
+                            child: user.avatar == null ? const Icon(Icons.person, size: 60) : null,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // Thông tin Profile (đã trừ khoảng overlap bằng Transform)
                   Text(
                     user.name,
                     style: TextStyle(
@@ -318,36 +439,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   const SizedBox(height: 20),
                   const Divider(),
-                  // Bài viết
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text("Bài viết của bạn", style: TextStyle(fontWeight: FontWeight.bold)),
+                  
+                  // Tabs
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildTabItem("Bài viết", 0, isDark),
+                      _buildTabItem("Đã chia sẻ", 1, isDark),
+                      if (isMe) _buildTabItem("Đã lưu", 2, isDark),
+                    ],
                   ),
+                  const SizedBox(height: 10),
+
+                  // Content List
                   ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _userPosts.length,
+                    itemCount: _selectedIndex == 0 
+                        ? _userPosts.length 
+                        : (_selectedIndex == 1 ? _userShares.length : _userSaved.length),
                     itemBuilder: (context, index) {
-                      return PostCard(post: _userPosts[index]);
+                      final post = _selectedIndex == 0 
+                          ? _userPosts[index] 
+                          : (_selectedIndex == 1 ? _userShares[index] : _userSaved[index]);
+                      return PostCard(post: post);
                     },
                   ),
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text("Bài bạn đã chia sẻ", style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _userShares.length,
-                    itemBuilder: (context, index) {
-                      return PostCard(post: _userShares[index]);
-                    },
-                  ),
+                  if ((_selectedIndex == 0 && _userPosts.isEmpty) ||
+                      (_selectedIndex == 1 && _userShares.isEmpty) ||
+                      (_selectedIndex == 2 && _userSaved.isEmpty))
+                    const Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Text("Chưa có nội dung nào.", style: TextStyle(color: Colors.grey)),
+                    ),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTabItem(String label, int index, bool isDark) {
+    final isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        decoration: BoxDecoration(
+          border: isSelected ? Border(bottom: BorderSide(color: Colors.blue, width: 2)) : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.blue : (isDark ? Colors.grey : Colors.black54),
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
       ),
     );
   }

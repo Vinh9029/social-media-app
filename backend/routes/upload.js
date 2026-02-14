@@ -35,7 +35,10 @@ router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
     const avatarUrl = req.file.path;
 
     // Cập nhật avatar cho user trong DB
-    await User.findByIdAndUpdate(req.user.id, { avatar_url: avatarUrl });
+    await User.findByIdAndUpdate(req.user.id, { 
+      avatar_url: avatarUrl,
+      $addToSet: { uploaded_images: avatarUrl } // Thêm vào bộ sưu tập
+    });
 
     res.json({ avatar: avatarUrl, message: 'Upload thành công' });
   } catch (err) {
@@ -55,7 +58,10 @@ router.post('/cover', auth, upload.single('cover'), async (req, res) => {
     const coverUrl = req.file.path;
 
     // Cập nhật cover_url cho user trong DB
-    await User.findByIdAndUpdate(req.user.id, { cover_url: coverUrl });
+    await User.findByIdAndUpdate(req.user.id, { 
+      cover_url: coverUrl,
+      $addToSet: { uploaded_images: coverUrl }
+    });
 
     res.json({ cover: coverUrl, message: 'Upload thành công' });
   } catch (err) {
@@ -73,6 +79,9 @@ router.post('/post', auth, upload.single('image'), async (req, res) => {
 
     // Tạo đường dẫn URL
     const imageUrl = req.file.path;
+    
+    // Lưu vào collection user
+    await User.findByIdAndUpdate(req.user.id, { $addToSet: { uploaded_images: imageUrl } });
 
     // Trả về URL để frontend dùng tạo bài viết
     res.json({ url: imageUrl, message: 'Upload thành công' });
@@ -85,9 +94,8 @@ router.post('/post', auth, upload.single('image'), async (req, res) => {
 // Lấy danh sách ảnh trong bộ sưu tập của User
 router.get('/collection', auth, async (req, res) => {
   try {
-    // Cloudinary không hỗ trợ list file đơn giản qua API public này
-    // Trả về mảng rỗng hoặc cần implement Admin API nếu muốn
-    res.json([]);
+    const user = await User.findById(req.user.id).select('uploaded_images');
+    res.json(user.uploaded_images || []);
   } catch (err) {
     res.status(500).json({ message: 'Lỗi lấy bộ sưu tập' });
   }

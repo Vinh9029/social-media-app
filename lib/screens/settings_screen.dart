@@ -20,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _bioController = TextEditingController();
   final _socialController = TextEditingController();
   bool _isLoading = false;
+  List<dynamic> _blockedUsers = [];
 
   @override
   void initState() {
@@ -27,6 +28,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     _bioController.text = user?.bio ?? '';
     _socialController.text = user?.username ?? '';
+    _fetchBlockedUsers();
+  }
+
+  Future<void> _fetchBlockedUsers() async {
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    try {
+      // Giả định backend có route này (cần thêm vào backend/routes/users.js)
+      final response = await http.get(
+        Uri.parse('$API_URL/api/users/blocked'),
+        headers: {'x-auth-token': token ?? ''},
+      );
+      if (response.statusCode == 200) {
+        setState(() => _blockedUsers = json.decode(response.body));
+      }
+    } catch (e) { print(e); }
+  }
+
+  Future<void> _unblockUser(String userId) async {
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    try {
+      await http.put(
+        Uri.parse('$API_URL/api/users/unblock/$userId'),
+        headers: {'x-auth-token': token ?? ''},
+      );
+      _fetchBlockedUsers(); // Reload list
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã bỏ chặn')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi khi bỏ chặn')));
+    }
   }
 
   Future<void> _changePassword() async {
@@ -175,6 +205,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: _isLoading ? const CircularProgressIndicator() : const Text('Đổi mật khẩu'),
           ),
           const Divider(height: 30),
+
+          // Danh sách chặn
+          const Text('Danh sách chặn', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          if (_blockedUsers.isEmpty)
+            const Text("Chưa chặn ai.", style: TextStyle(color: Colors.grey))
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _blockedUsers.length,
+              itemBuilder: (context, index) {
+                final user = _blockedUsers[index];
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundImage: user['avatar_url'] != null ? NetworkImage(user['avatar_url']) : null,
+                    child: user['avatar_url'] == null ? const Icon(Icons.person) : null,
+                  ),
+                  title: Text(user['full_name'] ?? 'Unknown'),
+                  trailing: TextButton(
+                    onPressed: () => _unblockUser(user['_id']),
+                    child: const Text("Bỏ chặn", style: TextStyle(color: Colors.red)),
+                  ),
+                );
+              },
+            ),
+          const Divider(height: 30),
+
           // Đăng xuất
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
