@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  backend:
+    # Build từ thư mục backend
+    build: ./backend
+    container_name: social_app_backend
+    restart: always
+    # Map port 5000 của máy thật vào port 5000 của container
+    ports:
+      - "5000:5000"
+    # Đọc biến môi trường từ file .env trong thư mục backend
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=5000
+      # Nếu bạn muốn override biến nào thì ghi đè ở đây
+      # - NODE_ENV=production

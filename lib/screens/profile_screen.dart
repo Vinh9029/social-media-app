@@ -359,7 +359,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   // Avatar Overlap Logic
                   Transform.translate(
-                    offset: const Offset(0, -50), // Đẩy avatar lên trên để chồng lấn
+                    offset: const Offset(0, 5), // Đẩy avatar lên 60px (1/2 chiều cao 120px) để nằm chính giữa
                     child: Center(
                       child: GestureDetector(
                         onTap: isMe ? () => _showImagePickerOptions('avatar') : null,

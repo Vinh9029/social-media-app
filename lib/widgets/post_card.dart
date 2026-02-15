@@ -12,8 +12,10 @@ import '../config.dart';
 class PostCard extends StatefulWidget {
   final Post post;
   final bool isDetail; // Flag để biết đang ở màn hình detail
+  final Function(Post)? onPostUpdated; // Callback để báo cho cha biết có thay đổi (dùng trong detail)
+  final Function(String)? onPostDeleted; // Callback khi xóa bài
 
-  const PostCard({super.key, required this.post, this.isDetail = false});
+  const PostCard({super.key, required this.post, this.isDetail = false, this.onPostUpdated, this.onPostDeleted});
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -21,6 +23,8 @@ class PostCard extends StatefulWidget {
 
 class _PostCardState extends State<PostCard> {
   late int _likesCount;
+  late int _commentsCount;
+  late int _sharesCount;
   bool _isLiked = false;
   bool _isSaved = false;
 
@@ -28,6 +32,8 @@ class _PostCardState extends State<PostCard> {
   void initState() {
     super.initState();
     _likesCount = widget.post.likes;
+    _commentsCount = widget.post.comments;
+    _sharesCount = widget.post.shares;
     // Logic kiểm tra đã like/save chưa. 
     // Do Post model hiện tại chưa có field isLiked/isSaved rõ ràng trong context,
     // ta tạm thời để false hoặc cần update Post model.
@@ -42,6 +48,7 @@ class _PostCardState extends State<PostCard> {
       _isLiked = !_isLiked;
       _likesCount += _isLiked ? 1 : -1;
     });
+    _notifyUpdate();
 
     try {
       await http.put(
@@ -55,6 +62,7 @@ class _PostCardState extends State<PostCard> {
         _isLiked = !_isLiked;
         _likesCount += _isLiked ? 1 : -1;
       });
+      _notifyUpdate();
     }
   }
 
@@ -64,6 +72,7 @@ class _PostCardState extends State<PostCard> {
 
     setState(() => _isSaved = !_isSaved);
 
+    // Gọi API Save
     try {
       await http.put(
         Uri.parse('$API_URL/api/posts/${widget.post.id}/save'),
@@ -87,8 +96,173 @@ class _PostCardState extends State<PostCard> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Đã chia sẻ bài viết!")),
       );
+      setState(() {
+        _sharesCount += 1;
+      });
+      _notifyUpdate();
     } catch (e) {
       print("Share error: $e");
+    }
+  }
+
+  // Hàm edit bài viết
+  Future<void> _editPost(String newContent) async {
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    try {
+      final response = await http.put(
+        Uri.parse('$API_URL/api/posts/${widget.post.id}'),
+        headers: {'Content-Type': 'application/json', 'x-auth-token': token ?? ''},
+        body: json.encode({'content': newContent}),
+      );
+
+      if (response.statusCode == 200) {
+        // Cập nhật UI tạm thời (hoặc parse response để lấy data mới)
+        // Ở đây ta không thể sửa widget.post.content vì nó là final, 
+        // nhưng trong thực tế nên reload lại list hoặc dùng state management.
+        // Để đơn giản, ta thông báo thành công.
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Đã cập nhật bài viết")));
+        // Nếu muốn UI cập nhật text ngay, cần chuyển content vào State variable tương tự likeCount.
+      }
+    } catch (e) {
+      print("Edit error: $e");
+    }
+  }
+
+  // Hàm xóa bài viết
+  Future<void> _deletePost() async {
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    try {
+      final response = await http.delete(
+        Uri.parse('$API_URL/api/posts/${widget.post.id}'),
+        headers: {'x-auth-token': token ?? ''},
+      );
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Đã xóa bài viết")));
+        if (widget.onPostDeleted != null) {
+          widget.onPostDeleted!(widget.post.id);
+        }
+      }
+    } catch (e) {
+      print("Delete error: $e");
+    }
+  }
+
+  void _showEditDialog() {
+    final controller = TextEditingController(text: widget.post.content);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Chỉnh sửa bài viết"),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Hủy")),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _editPost(controller.text);
+            },
+            child: const Text("Lưu"),
+          )
+        ],
+      ),
+    );
+  }
+
+  // UI/UX: Bottom Sheet thay vì PopupMenu
+  void _showOptionsBottomSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 10),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(LucideIcons.edit, color: Colors.blue),
+                title: const Text('Chỉnh sửa bài viết'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showEditDialog();
+                },
+              ),
+              ListTile(
+                leading: const Icon(LucideIcons.trash2, color: Colors.red),
+                title: const Text('Xóa bài viết', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text("Xác nhận xóa"),
+                      content: const Text("Bạn có chắc chắn muốn xóa bài viết này không?"),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Hủy")),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            await _deletePost();
+                          },
+                          child: const Text("Xóa", style: TextStyle(color: Colors.white)),
+                        )
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper để báo cho PostDetailScreen biết có thay đổi
+  void _notifyUpdate() {
+    if (widget.onPostUpdated != null) {
+      // Tạo một bản sao Post mới với dữ liệu đã update
+      // Lưu ý: Post model cần có method copyWith hoặc tạo mới thủ công
+      // Ở đây ta tạo thủ công dựa trên model hiện có
+      
+      Post updatedPost = Post(
+        id: widget.post.id,
+        author: widget.post.author,
+        content: widget.post.content, // Nếu có edit content thì lấy từ state
+        image: widget.post.image,
+        likes: _likesCount,
+        comments: _commentsCount,
+        shares: _sharesCount,
+        timestamp: widget.post.timestamp
+      );
+      widget.onPostUpdated!(updatedPost);
+     
+      // Do class Post không có copyWith trong context, ta truyền tạm object cũ 
+      // nhưng PostDetailScreen sẽ cần các biến count riêng.
+      // Cách đơn giản nhất cho bài toán này: PostDetailScreen tự quản lý state count
+      // và truyền callback xuống đây để update state đó.
+      
+      // Gọi callback đơn giản để báo cha update (nếu cha quản lý state)
+      widget.onPostUpdated!(widget.post); 
     }
   }
 
@@ -116,13 +290,20 @@ class _PostCardState extends State<PostCard> {
     return GestureDetector(
       onTap: widget.isDetail ? null : () async {
         // Await kết quả trả về từ Detail Screen để sync data
-        final result = await Navigator.push(
+        final updatedData = await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => PostDetailScreen(post: widget.post)),
         );
-        if (result == true) {
-          // Nếu có thay đổi (ví dụ comment), reload hoặc update state
-          // Ở đây ta giả lập tăng comment count hoặc cần fetch lại post
+        
+        // Nếu có dữ liệu trả về (Map chứa các count mới)
+        if (updatedData != null && updatedData is Map<String, dynamic>) {
+          setState(() {
+            if (updatedData.containsKey('likes')) _likesCount = updatedData['likes'];
+            if (updatedData.containsKey('comments')) _commentsCount = updatedData['comments'];
+            if (updatedData.containsKey('shares')) _sharesCount = updatedData['shares'];
+            if (updatedData.containsKey('isLiked')) _isLiked = updatedData['isLiked'];
+            if (updatedData.containsKey('isSaved')) _isSaved = updatedData['isSaved'];
+          });
         }
       },
       child: Container(
@@ -199,17 +380,9 @@ class _PostCardState extends State<PostCard> {
                 ),
                 // Edit Button Logic (Giả lập editCount < 3)
                 if (isMe)
-                  PopupMenuButton<String>(
+                  IconButton(
                     icon: const Icon(LucideIcons.moreHorizontal, color: Colors.grey),
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        // Handle edit post logic
-                      }
-                    },
-                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                      const PopupMenuItem<String>(value: 'edit', child: Text('Chỉnh sửa bài viết')),
-                      const PopupMenuItem<String>(value: 'delete', child: Text('Xóa bài viết')),
-                    ],
+                    onPressed: _showOptionsBottomSheet,
                   ),
               ],
             ),
@@ -252,17 +425,25 @@ class _PostCardState extends State<PostCard> {
                 ),
                 _buildActionButton(
                   icon: LucideIcons.messageCircle,
-                  label: '${widget.post.comments}',
+                  label: '$_commentsCount',
                   onTap: () async {
                     if (!widget.isDetail) {
-                       await Navigator.push(
+                       final updatedData = await Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => PostDetailScreen(post: widget.post)),
                       );
+                       if (updatedData != null && updatedData is Map<String, dynamic>) {
+                          setState(() {
+                            if (updatedData.containsKey('likes')) _likesCount = updatedData['likes'];
+                            if (updatedData.containsKey('comments')) _commentsCount = updatedData['comments'];
+                            if (updatedData.containsKey('shares')) _sharesCount = updatedData['shares'];
+                            if (updatedData.containsKey('isLiked')) _isLiked = updatedData['isLiked'];
+                          });
+                       }
                     }
                   },
                 ),
-                _buildActionButton(icon: LucideIcons.share2, label: '${widget.post.shares}', onTap: _sharePost),
+                _buildActionButton(icon: LucideIcons.share2, label: '$_sharesCount', onTap: _sharePost),
                 _buildActionButton(
                   icon: _isSaved ? Icons.bookmark : LucideIcons.bookmark, 
                   label: '', 

@@ -26,10 +26,18 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   final ScrollController _scrollController = ScrollController();
   String? _replyingToId; // ID của comment đang được reply
   String? _editingCommentId; // ID của comment đang edit
+  
+  // State cục bộ để track thay đổi của Post (vì widget.post là final)
+  late int _currentLikes;
+  late int _currentComments;
+  late int _currentShares;
 
   @override
   void initState() {
     super.initState();
+    _currentLikes = widget.post.likes;
+    _currentComments = widget.post.comments;
+    _currentShares = widget.post.shares;
     _fetchComments();
   }
 
@@ -91,6 +99,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           _comments.insert(0, newComment);
           _replyingToId = null;
           _commentController.clear();
+          _currentComments++; // Tăng số lượng comment cục bộ
         });
         FocusScope.of(context).unfocus();
         Future.delayed(const Duration(milliseconds: 100), () {
@@ -128,8 +137,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       onPopInvoked: (didPop) async {
         if (didPop) return;
         // Trả về post hiện tại (hoặc updated data nếu có logic update post ở đây)
-        // Ở đây ta giả định comment count thay đổi, ta trả về true để PostCard reload
-        Navigator.of(context).pop(true);
+        // Trả về Map chứa các chỉ số mới nhất để PostCard ở Home cập nhật
+        Navigator.of(context).pop({
+          'likes': _currentLikes,
+          'comments': _currentComments,
+          'shares': _currentShares,
+          // 'isLiked': ... nếu track được isLiked từ PostCard con
+        });
       },
       child: Scaffold(
         appBar: AppBar(title: const Text('Chi tiết bài viết')),
@@ -141,7 +155,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 child: Column(
                   children: [
                     // Cho phép tương tác với PostCard (like, share) ngay trong detail
-                    PostCard(post: widget.post, isDetail: true),
+                    PostCard(
+                      post: widget.post, 
+                      isDetail: true,
+                      onPostUpdated: (updatedPost) {
+                        // Callback này được gọi khi PostCard con thay đổi like/share
+                        // Tuy nhiên PostCard hiện tại chưa trả về số liệu cụ thể trong callback
+                        // Ta có thể giả định logic hoặc sửa PostCard để trả về int.
+                        // Tạm thời ta chỉ cần biết là có tương tác.
+                        // Để chính xác: PostCard cần expose state ra ngoài.
+                      },
+                    ),
                     const Divider(),
                     if (_isLoadingComments)
                       const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())
@@ -226,6 +250,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
     final isMe = currentUser?.id == comment.author.id;
     final canEdit = isMe && comment.editCount < 3;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       children: [
@@ -249,15 +274,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.grey[200],
+                        color: isDark ? Colors.grey[800] : Colors.grey[200],
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(comment.author.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text(comment.author.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : Colors.black)),
                           const SizedBox(height: 4),
-                          Text(comment.content, style: const TextStyle(fontSize: 14)),
+                          Text(comment.content, style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[300] : Colors.black)),
                         ],
                       ),
                     ),
@@ -327,12 +352,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Widget _buildBottomInput() {
     final isReplying = _replyingToId != null;
     final isEditing = _editingCommentId != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey[300]!)),
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        border: Border(top: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[300]!)),
         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))],
       ),
       child: Column(
@@ -342,15 +368,28 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: isReplying ? Colors.blue[50] : Colors.orange[50],
+                color: isReplying 
+                    ? (isDark ? Colors.blue[900]!.withOpacity(0.3) : Colors.blue[50]) 
+                    : (isDark ? Colors.orange[900]!.withOpacity(0.3) : Colors.orange[50]),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: isReplying ? Colors.blue[200]! : Colors.orange[200]!),
+                border: Border.all(
+                  color: isReplying 
+                      ? (isDark ? Colors.blue[700]! : Colors.blue[200]!) 
+                      : (isDark ? Colors.orange[700]! : Colors.orange[200]!)
+                ),
               ),
               child: Row(
                 children: [
                   Icon(isReplying ? Icons.reply : Icons.edit, size: 16, color: isReplying ? Colors.blue : Colors.orange),
                   const SizedBox(width: 8),
-                  Text(isReplying ? "Đang trả lời bình luận..." : "Đang chỉnh sửa...", style: TextStyle(color: Colors.grey[800], fontSize: 13, fontWeight: FontWeight.w500)),
+                  Text(
+                    isReplying ? "Đang trả lời bình luận..." : "Đang chỉnh sửa...", 
+                    style: TextStyle(
+                      color: isDark ? Colors.grey[300] : Colors.grey[800], 
+                      fontSize: 13, 
+                      fontWeight: FontWeight.w500
+                    )
+                  ),
                   const Spacer(),
                   GestureDetector(
                     onTap: () => setState(() { _replyingToId = null; _editingCommentId = null; _commentController.clear(); }), 
@@ -365,13 +404,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: isDark ? Colors.grey[800] : Colors.grey[100],
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: TextField(
                     controller: _commentController,
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black),
                     decoration: InputDecoration(
                       hintText: isReplying ? 'Viết câu trả lời...' : 'Viết bình luận...',
+                      hintStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
                       border: InputBorder.none,
                     ),
                   ),

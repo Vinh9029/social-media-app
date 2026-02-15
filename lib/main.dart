@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/login_screen.dart';
@@ -14,6 +15,7 @@ import 'screens/notification_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   await Firebase.initializeApp();
   runApp(
     MultiProvider(
@@ -171,6 +173,8 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       // Chỉ hiện AppBar ở trang Home, các trang khác tự xử lý AppBar của riêng mình (như Profile)
       appBar: _currentIndex == 0 
@@ -223,9 +227,9 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) => setState(() => _currentIndex = index),
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
         elevation: 1,
-        indicatorColor: Colors.blue.withOpacity(0.1),
+        indicatorColor: isDark ? Colors.blue.withOpacity(0.2) : Colors.blue.withOpacity(0.1),
         destinations: const [
           NavigationDestination(
             icon: Icon(LucideIcons.home),
